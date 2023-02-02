@@ -24,13 +24,13 @@ public partial class GadgetstoreDbContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see http://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Server=LAPTOP-3H1AEF60\\SQLEXPRESS;Database=gadgetstore_db;Trusted_Connection=True;TrustServerCertificate=True;");
+        => optionsBuilder.UseSqlServer("Data Source=LAPTOP-3H1AEF60\\SQLEXPRESS;Initial Catalog=gadgetstore_db;Integrated security=True;Encrypt=False");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Category>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("PK__Category__3214EC27043F5BF7");
+            entity.HasKey(e => e.Id).HasName("PK__Category__3214EC272192C679");
 
             entity.ToTable("Category");
 
@@ -43,7 +43,7 @@ public partial class GadgetstoreDbContext : DbContext
 
         modelBuilder.Entity<Gadget>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("PK__Gadgets__3214EC277693E42C");
+            entity.HasKey(e => e.Id).HasName("PK__Gadgets__3214EC278CAB6812");
 
             entity.Property(e => e.Id).HasColumnName("ID");
             entity.Property(e => e.IdCategory).HasColumnName("ID_Category");
@@ -53,7 +53,7 @@ public partial class GadgetstoreDbContext : DbContext
 
             entity.HasOne(d => d.IdCategoryNavigation).WithMany(p => p.Gadgets)
                 .HasForeignKey(d => d.IdCategory)
-                .HasConstraintName("FK__Gadgets__ID_Cate__72C60C4A");
+                .HasConstraintName("FK__Gadgets__ID_Cate__540C7B00");
         });
 
         modelBuilder.Entity<User>(entity =>

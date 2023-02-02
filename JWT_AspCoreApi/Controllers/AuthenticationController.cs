@@ -1,8 +1,11 @@
 ﻿using JWT_AspCoreApi.Data;
 using JWT_AspCoreApi.Model;
+using JWT_AspCoreApi.Roles;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Win32;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -22,13 +25,13 @@ namespace JWT_AspCoreApi.Controllers
 
         [HttpPost]
         [Route("registration")]
-        public IActionResult Registration(string Login, string Password)
+        public IActionResult Registration(User user)
         {
-            var item = _dbContext.Users.FirstOrDefault(x => x.Login.Equals(Login) && x.Password.Equals(Password));
+            var item = _dbContext.Users.FirstOrDefault(x => x.Login.Equals(user.Login) && x.Password.Equals(user.Password));
 
             if (item == null)
             {
-                _dbContext.Add(new User { Login = Login, Password = Password });
+                _dbContext.Add(new User { Login = user.Login, Password = user.Password });
                 _dbContext.SaveChanges();
                 return Ok();
             }
@@ -37,9 +40,9 @@ namespace JWT_AspCoreApi.Controllers
 
         [HttpPost]
         [Route("login")]
-        public IActionResult Login(string Login, string Password)
+        public IActionResult Login(User user)
         {
-            var item = _dbContext.Users.FirstOrDefault(x => x.Login.Equals(Login) && x.Password.Equals(Password));
+            var item = _dbContext.Users.FirstOrDefault(x => x.Login.Equals(user.Login) && x.Password.Equals(user.Password));
             if (item != null)
             {
                 var secretKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(ConfigurationManager.AppSetting["JWT:Secret"]));
@@ -58,3 +61,4 @@ namespace JWT_AspCoreApi.Controllers
         }
     }
 }
+
