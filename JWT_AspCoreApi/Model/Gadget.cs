@@ -13,7 +13,7 @@ public partial class Gadget
 
     public double? Price { get; set; }
 
-    public string Image { get; set; }
+    public string? Image { get; set; }
 
     public virtual Category? IdCategoryNavigation { get; set; }
 }

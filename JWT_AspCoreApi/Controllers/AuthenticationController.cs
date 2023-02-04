@@ -13,51 +13,116 @@ using System.Text;
 namespace JWT_AspCoreApi.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("/api/[controller]/")]
     public class AuthenticationController : ControllerBase
     {
-        private readonly GadgetstoreDbContext _dbContext;
+        private readonly IConfiguration _configuration;
+        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly UserManager<IdentityUser> _userManager;
 
-        public AuthenticationController(GadgetstoreDbContext dbContext)
+        public AuthenticationController(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, IConfiguration configuration)
         {
-            _dbContext = dbContext;
-        }
-
-        [HttpPost]
-        [Route("registration")]
-        public IActionResult Registration(User user)
-        {
-            var item = _dbContext.Users.FirstOrDefault(x => x.Login.Equals(user.Login) && x.Password.Equals(user.Password));
-
-            if (item == null)
-            {
-                _dbContext.Add(new User { Login = user.Login, Password = user.Password });
-                _dbContext.SaveChanges();
-                return Ok();
-            }
-            return BadRequest();
+            _userManager = userManager;
+            _roleManager = roleManager;
+            _configuration = configuration;
         }
 
         [HttpPost]
         [Route("login")]
-        public IActionResult Login(User user)
+        public async Task<IActionResult> Login([FromBody] Login model)
         {
-            var item = _dbContext.Users.FirstOrDefault(x => x.Login.Equals(user.Login) && x.Password.Equals(user.Password));
-            if (item != null)
+            var user = await _userManager.FindByNameAsync(model.UserName);
+            var d = _userManager.CheckPasswordAsync(user, model.Password);
+            if (user != null && await _userManager.CheckPasswordAsync(user, model.Password))
             {
-                var secretKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(ConfigurationManager.AppSetting["JWT:Secret"]));
-                var signinCredeentials = new SigningCredentials(secretKey, SecurityAlgorithms.HmacSha256);
-                var jtOptions = new JwtSecurityToken(
-                    issuer: ConfigurationManager.AppSetting["JWT:ValidIssuer"],
-                    audience: ConfigurationManager.AppSetting["JWT:ValidAudience"],
-                    claims: new List<Claim>(),
-                    expires: DateTime.Now.AddMinutes(10),
-                    signingCredentials: signinCredeentials);
-                var tokenStr = new JwtSecurityTokenHandler().WriteToken(jtOptions);
-                return Ok(new JWTTokenResponse() { Token = tokenStr });
+                var userRole = await _userManager.GetRolesAsync(user);
+                var authClaims = new List<Claim> {
+                    new Claim(ClaimTypes.Name, user.UserName),
+                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                };
+
+                foreach (var role in userRole)
+                {
+                    authClaims.Add(new Claim(ClaimTypes.Role, role));
+                }
+
+                var token = GetToken(authClaims);
+
+                return Ok(new
+                {
+                    Token = new JwtSecurityTokenHandler().WriteToken(token),
+                    expiration = token.ValidTo
+                });
             }
-            else { return BadRequest(); }
             return Unauthorized();
+        }
+
+        [HttpPost]
+        [Route("regUser")]
+        public async Task<IActionResult> RegUser([FromBody] Registration model)
+        {
+            var userEx = await _userManager.FindByNameAsync(model.UserName);
+            if (userEx != null) return StatusCode(StatusCodes.Status500InternalServerError, "User in db already");
+
+            IdentityUser user = new()
+            {
+                UserName = model.UserName,
+                Email = model.Email,
+                SecurityStamp = Guid.NewGuid().ToString()
+            };
+
+            var res = await _userManager.CreateAsync(user, model.Password);
+            if (!res.Succeeded) { return StatusCode(StatusCodes.Status500InternalServerError, "Creation failed!"); }
+
+            return Ok("User added!");
+        }
+
+
+        [HttpPost]
+        [Route("regAdmin")]
+        public async Task<IActionResult> RegAdmin([FromBody] Registration model)
+        {
+            var userEx = await _userManager.FindByNameAsync(model.UserName);
+            if (userEx != null) return StatusCode(StatusCodes.Status500InternalServerError, "Admin in db already");
+
+            IdentityUser user = new()
+            {
+                UserName = model.UserName,
+                Email = model.Email,
+                SecurityStamp = Guid.NewGuid().ToString()
+            };
+
+            var res = await _userManager.CreateAsync(user, model.Password);
+            if (!res.Succeeded) { return StatusCode(StatusCodes.Status500InternalServerError, "Creation failed!"); }
+
+            if (!await _roleManager.RoleExistsAsync(UserRoles.Administration))
+                await _roleManager.CreateAsync(new IdentityRole(UserRoles.Administration));
+            if (!await _roleManager.RoleExistsAsync(UserRoles.User))
+                await _roleManager.CreateAsync(new IdentityRole(UserRoles.User));
+
+
+            //Доступно только то, что авторизированно админу !
+            if (await _roleManager.RoleExistsAsync(UserRoles.Administration))
+                await _userManager.AddToRoleAsync(user, UserRoles.Administration);
+            // доступны методы и пользователей
+            if (await _roleManager.RoleExistsAsync(UserRoles.Administration))
+                await _userManager.AddToRoleAsync(user, UserRoles.User);
+
+            return Ok("Admin added!");
+        }
+
+        private JwtSecurityToken GetToken(List<Claim> claimsList)
+        {
+            var signKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JWT:Secret"]));
+            var token = new JwtSecurityToken(
+                    issuer: _configuration["JWT:ValidIssuer"],
+                    audience: _configuration["JWT:ValidAudience"],
+                    expires: DateTime.Now.AddHours(6),
+                    claims: claimsList,
+                    signingCredentials: new SigningCredentials(signKey, SecurityAlgorithms.HmacSha256)
+                );
+
+            return token;
         }
     }
 }

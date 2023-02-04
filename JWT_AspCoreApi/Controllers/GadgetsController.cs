@@ -90,13 +90,14 @@ namespace JWT_AspCoreApi.Controllers
         [HttpPost]
         [Route("EditGadget")]
 
-        public ActionResult Edit(int id, Gadget gadget)
+        public ActionResult Edit(Gadget gadget)
         {
-            var item = _context.Gadgets.FirstOrDefault(x => x.Id.Equals(id));
+            var item = _context.Gadgets.FirstOrDefault(x => x.Id.Equals(gadget.Id));
 
             if (item != null)
             {
                 _context.Remove(item);
+                _context.SaveChanges();
                 _context.Add(new Gadget { IdCategory = gadget.IdCategory, Name = gadget.Name, Price = gadget.Price});
                 _context.SaveChanges();
                 _cacheService.SetData("Gadget", _context.Gadgets, DateTimeOffset.Now.AddDays(1));
